@@ -13,6 +13,8 @@ phases:
       - 'test -f "appspec.yml" || (echo "FAIL: missing appspec.yml" && exit 1)'
       - 'test -f "deploy.sh" || (echo "FAIL: missing deploy.sh" && exit 1)'
       - 'test -f "group_sender.py" || (echo "FAIL: missing group_sender.py" && exit 1)'
+      - 'test -f "scripts/select_active_sender.sh" || (echo "FAIL: missing scripts/select_active_sender.sh" && exit 1)'
+      - 'for f in bank_sender.py card_sender.py insurance_sender.py insurance_online_sender.py securities_sender.py hospital_sender.py healthcare_sender.py batch_export.py api_collector.py; do test -f "$f" || (echo "FAIL: missing $f" && exit 1); done'
       - 'test -f "requirements.txt" || (echo "FAIL: missing requirements.txt" && exit 1)'
       - 'test -f "group-agent.service" || (echo "FAIL: missing group-agent.service" && exit 1)'
       - 'test -f ".env.sample" || test -f ".env.example" || (echo "FAIL: missing .env.sample or .env.example" && exit 1)'
@@ -28,6 +30,15 @@ artifacts:
     - buildspec-deploy.yml
     - deploy.sh
     - group_sender.py
+    - bank_sender.py
+    - card_sender.py
+    - insurance_sender.py
+    - insurance_online_sender.py
+    - securities_sender.py
+    - hospital_sender.py
+    - healthcare_sender.py
+    - batch_export.py
+    - api_collector.py
     - requirements.txt
     - group-agent.service
     - .env.sample
@@ -36,3 +47,4 @@ artifacts:
     - scripts/after_install.sh
     - scripts/start.sh
     - scripts/stop.sh
+    - scripts/select_active_sender.sh
