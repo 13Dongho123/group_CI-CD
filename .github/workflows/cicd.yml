@@ -1,9 +1,16 @@
+# OIDC 호출: GHA → AWS AssumeRoleWithWebIdentity (IdP 1회/계정, Role은 저장소별 권장, sub=repo:… 제한).
+# Secrets: AWS_ROLE_TO_ASSUME, CODECOMMIT_HTTPS_URL | Variables(선택): AWS_REGION
 name: group-ci
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: group-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   id-token: write
@@ -18,16 +25,24 @@ jobs:
 
   mirror-to-codecommit:
     needs: validate
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Check secrets
+        run: |
+          test -n "${{ secrets.AWS_ROLE_TO_ASSUME }}" && test -n "${{ secrets.CODECOMMIT_HTTPS_URL }}"
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: gh-group-${{ github.run_id }}
+          audience: sts.amazonaws.com
+      - name: Verify OIDC session (get-caller-identity)
+        run: aws sts get-caller-identity
       - env:
           CC_URL: ${{ secrets.CODECOMMIT_HTTPS_URL }}
         run: |
@@ -35,4 +50,4 @@ jobs:
           git config --global credential.helper '!aws codecommit credential-helper $@'
           git config --global credential.UseHttpPath true
           git remote add codecommit "${CC_URL}" 2>/dev/null || git remote set-url codecommit "${CC_URL}"
-          git push codecommit "HEAD:refs/heads/${GITHUB_REF_NAME}"
+          git push codecommit "HEAD:refs/heads/${GITHUB_REF_NAME:-main}"
