@@ -1,11 +1,38 @@
 version: 0.2
+
 phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - aws --version
+      - python --version
   pre_build:
     commands:
-      - test -f appspec.yml && test -f group_sender.py
+      - 'test -f "buildspec-deploy.yml" || (echo "FAIL: missing buildspec-deploy.yml (Deploy 단계 아티팩트에 필요)" && exit 1)'
+      - 'test -f "appspec.yml" || (echo "FAIL: missing appspec.yml" && exit 1)'
+      - 'test -f "deploy.sh" || (echo "FAIL: missing deploy.sh" && exit 1)'
+      - 'test -f "group_sender.py" || (echo "FAIL: missing group_sender.py" && exit 1)'
+      - 'test -f "requirements.txt" || (echo "FAIL: missing requirements.txt" && exit 1)'
+      - 'test -f "group-agent.service" || (echo "FAIL: missing group-agent.service" && exit 1)'
+      - 'test -f ".env.sample" || test -f ".env.example" || (echo "FAIL: missing .env.sample or .env.example" && exit 1)'
+      - 'test -d "scripts" || (echo "FAIL: missing scripts/ (CodeDeploy hooks)" && exit 1)'
+      - chmod +x deploy.sh scripts/*.sh
   build:
     commands:
-      - zip -rq bundle.zip . -x ".git/*" ".github/*"
+      - echo "[INFO] group codedeploy revision build complete"
+
 artifacts:
   files:
-    - bundle.zip
+    - appspec.yml
+    - buildspec-deploy.yml
+    - deploy.sh
+    - group_sender.py
+    - requirements.txt
+    - group-agent.service
+    - .env.sample
+    - .env.example
+    - scripts/before_install.sh
+    - scripts/after_install.sh
+    - scripts/start.sh
+    - scripts/stop.sh

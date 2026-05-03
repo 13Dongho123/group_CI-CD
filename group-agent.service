@@ -1,0 +1,14 @@
+[Unit]
+Description=Group Agent Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/group-agent
+ExecStart=/usr/bin/python3 /opt/group-agent/group_sender.py
+Restart=always
+RestartSec=3
+EnvironmentFile=-/opt/group-agent/.env
+
+[Install]
+WantedBy=multi-user.target
