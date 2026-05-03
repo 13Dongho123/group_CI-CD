@@ -1,0 +1,11 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - test -f appspec.yml && test -f group_sender.py
+  build:
+    commands:
+      - zip -rq bundle.zip . -x ".git/*" ".github/*"
+artifacts:
+  files:
+    - bundle.zip

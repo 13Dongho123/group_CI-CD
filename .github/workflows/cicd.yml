@@ -1,0 +1,38 @@
+name: group-ci
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: test -f buildspec.yml && test -f appspec.yml && test -f group_sender.py
+
+  mirror-to-codecommit:
+    needs: validate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      - env:
+          CC_URL: ${{ secrets.CODECOMMIT_HTTPS_URL }}
+        run: |
+          set -euo pipefail
+          git config --global credential.helper '!aws codecommit credential-helper $@'
+          git config --global credential.UseHttpPath true
+          git remote add codecommit "${CC_URL}" 2>/dev/null || git remote set-url codecommit "${CC_URL}"
+          git push codecommit "HEAD:refs/heads/${GITHUB_REF_NAME}"
