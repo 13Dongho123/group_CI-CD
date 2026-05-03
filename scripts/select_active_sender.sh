@@ -28,22 +28,36 @@ if [[ -z "${IID}" || -z "${REGION}" ]]; then
   exit 1
 fi
 
-AWS_ERR="$(mktemp)"
-trap 'rm -f "${AWS_ERR}"' EXIT
-set +e
-NAME_TAG="$(aws ec2 describe-tags --region "${REGION}" \
-  --filters "Name=resource-id,Values=${IID}" "Name=key,Values=Name" \
-  --query 'Tags[0].Value' --output text 2>"${AWS_ERR}")"
-DESC_RC=$?
-set -e
-if [[ "${DESC_RC}" -ne 0 ]]; then
-  echo "FAIL: aws ec2 describe-tags failed (exit ${DESC_RC}). Attach ec2:DescribeTags to this instance IAM role." >&2
-  if [[ -s "${AWS_ERR}" ]]; then sed 's/^/[aws stderr] /' "${AWS_ERR}" >&2; fi
-  exit 1
+# Prefer IMDS (no IAM / no aws-cli) when InstanceMetadataTags is enabled on the instance.
+IMDS_TAGS="http://169.254.169.254/latest/meta-data/tags/instance"
+if [[ -n "${TOKEN}" ]]; then
+  NAME_TAG="$(curl -sS -m 10 -f -H "X-aws-ec2-metadata-token: ${TOKEN}" "${IMDS_TAGS}/Name" 2>/dev/null || true)"
+else
+  NAME_TAG="$(curl -sS -m 10 -f "${IMDS_TAGS}/Name" 2>/dev/null || true)"
+fi
+NAME_TAG="${NAME_TAG//$'\r'/}"
+
+if [[ -z "${NAME_TAG}" || "${NAME_TAG}" == "None" ]]; then
+  if command -v aws >/dev/null 2>&1; then
+    AWS_ERR="$(mktemp)"
+    trap 'rm -f "${AWS_ERR}"' EXIT
+    set +e
+    NAME_TAG="$(aws ec2 describe-tags --region "${REGION}" \
+      --filters "Name=resource-id,Values=${IID}" "Name=key,Values=Name" \
+      --query 'Tags[0].Value' --output text 2>"${AWS_ERR}")"
+    DESC_RC=$?
+    set -e
+    if [[ "${DESC_RC}" -ne 0 ]]; then
+      echo "FAIL: aws ec2 describe-tags failed (exit ${DESC_RC}). Check IAM ec2:DescribeTags, or rely on InstanceMetadataTags (see 12-ec2)." >&2
+      if [[ -s "${AWS_ERR}" ]]; then sed 's/^/[aws stderr] /' "${AWS_ERR}" >&2; fi
+      exit 1
+    fi
+    NAME_TAG="${NAME_TAG//$'\r'/}"
+  fi
 fi
 
 if [[ -z "${NAME_TAG}" || "${NAME_TAG}" == "None" ]]; then
-  echo "FAIL: EC2 has no usable Name tag (need e.g. lifesync-dev-group-bank-ec2). If IAM is OK, add Name on this instance (${IID})."
+  echo "FAIL: could not read EC2 Name tag (want e.g. lifesync-dev-group-bank-ec2). Enable InstanceMetadataTags on EC2 updated from 12-ec2, or install aws-cli on the AMI." >&2
   exit 1
 fi
 
