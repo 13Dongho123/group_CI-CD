@@ -28,12 +28,22 @@ if [[ -z "${IID}" || -z "${REGION}" ]]; then
   exit 1
 fi
 
+AWS_ERR="$(mktemp)"
+trap 'rm -f "${AWS_ERR}"' EXIT
+set +e
 NAME_TAG="$(aws ec2 describe-tags --region "${REGION}" \
   --filters "Name=resource-id,Values=${IID}" "Name=key,Values=Name" \
-  --query 'Tags[0].Value' --output text 2>/dev/null || true)"
+  --query 'Tags[0].Value' --output text 2>"${AWS_ERR}")"
+DESC_RC=$?
+set -e
+if [[ "${DESC_RC}" -ne 0 ]]; then
+  echo "FAIL: aws ec2 describe-tags failed (exit ${DESC_RC}). Attach ec2:DescribeTags to this instance IAM role." >&2
+  if [[ -s "${AWS_ERR}" ]]; then sed 's/^/[aws stderr] /' "${AWS_ERR}" >&2; fi
+  exit 1
+fi
 
 if [[ -z "${NAME_TAG}" || "${NAME_TAG}" == "None" ]]; then
-  echo "FAIL: EC2 has no Name tag (need e.g. lifesync-dev-group-bank-ec2)"
+  echo "FAIL: EC2 has no usable Name tag (need e.g. lifesync-dev-group-bank-ec2). If IAM is OK, add Name on this instance (${IID})."
   exit 1
 fi
 
