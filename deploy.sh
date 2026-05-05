@@ -25,7 +25,11 @@ if [[ ! -f "${REV_DIR}/group_sender.py" ]] || [[ ! -f "${REV_DIR}/requirements.t
 fi
 
 cp -f "${REV_DIR}/group_sender.py" "${APP_DIR}/group_sender.py"
+cp -f "${REV_DIR}/group_sender.py" "${APP_DIR}/active_sender.py"
 cp -f "${REV_DIR}/requirements.txt" "${APP_DIR}/requirements.txt"
+for f in bank_sender.py card_sender.py insurance_sender.py insurance_online_sender.py securities_sender.py hospital_sender.py healthcare_sender.py batch_export.py api_collector.py; do
+  [[ -f "${REV_DIR}/${f}" ]] && cp -f "${REV_DIR}/${f}" "${APP_DIR}/${f}"
+done
 
 if [[ -f "${REV_DIR}/.env.sample" ]]; then
   cp -n "${REV_DIR}/.env.sample" "${APP_DIR}/.env" || true

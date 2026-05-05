@@ -87,6 +87,6 @@ if [[ ! -f "${DEPLOY_ROOT}/${src}" ]]; then
   exit 1
 fi
 
-cp -f "${DEPLOY_ROOT}/${src}" "${DEPLOY_ROOT}/group_sender.py"
-chmod 0644 "${DEPLOY_ROOT}/group_sender.py"
+cp -f "${DEPLOY_ROOT}/${src}" "${DEPLOY_ROOT}/active_sender.py"
+chmod 0644 "${DEPLOY_ROOT}/active_sender.py"
 echo "[OK] active sender: ${src} (segment=${segment}, Name=${NAME_TAG})"

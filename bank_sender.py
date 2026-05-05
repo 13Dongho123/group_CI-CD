@@ -1,15 +1,7 @@
 #!/usr/bin/env python3
-"""lifesync-dev-group-bank-ec2 — bank 계열 sender (샘플)."""
-import os
-import time
-
-
-def main():
-    interval = int(os.environ.get("GROUP_SEND_INTERVAL_SEC", "120"))
-    while True:
-        print("group-agent[bank]: heartbeat", flush=True)
-        time.sleep(interval)
+"""bank batch sender -> BatchLoaderLambda."""
+from group_sender import run_sender
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(run_sender("bank"))
