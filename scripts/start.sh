@@ -2,8 +2,10 @@
 set -euo pipefail
 if [[ -f /etc/systemd/system/group-agent.service ]]; then
   systemctl daemon-reload
-  systemctl enable group-agent.service || true
-  systemctl restart group-agent.service || true
+  systemctl enable group-agent.service
+  systemctl restart group-agent.service
+  systemctl is-active --quiet group-agent.service
 else
-  nohup /usr/bin/python3 /opt/group-agent/active_sender.py >> /var/log/group-agent.log 2>&1 &
+  echo "FAIL: /etc/systemd/system/group-agent.service not found"
+  exit 1
 fi

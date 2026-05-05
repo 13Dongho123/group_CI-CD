@@ -32,25 +32,35 @@ for f in bank_sender.py card_sender.py insurance_sender.py insurance_online_send
 done
 
 if [[ -f "${REV_DIR}/.env.sample" ]]; then
-  cp -n "${REV_DIR}/.env.sample" "${APP_DIR}/.env" || true
+  cp -n "${REV_DIR}/.env.sample" "${APP_DIR}/.env"
 elif [[ -f "${REV_DIR}/.env.example" ]]; then
-  cp -n "${REV_DIR}/.env.example" "${APP_DIR}/.env" || true
+  cp -n "${REV_DIR}/.env.example" "${APP_DIR}/.env"
+fi
+
+if [[ -f "/etc/group-agent/env" ]]; then
+  cp -f "/etc/group-agent/env" "${APP_DIR}/.env"
+  echo "[INFO] loaded runtime env from /etc/group-agent/env"
 fi
 
 if [[ -f "${REV_DIR}/group-agent.service" ]]; then
   ${SUDO} cp -f "${REV_DIR}/group-agent.service" "/etc/systemd/system/${SERVICE_NAME}.service"
+else
+  echo "FAIL: ${REV_DIR}/group-agent.service not found"
+  exit 1
 fi
 
 if command -v python3 >/dev/null 2>&1; then
-  python3 -m pip install -r "${APP_DIR}/requirements.txt" \
-    || python3 -m pip install -r "${APP_DIR}/requirements.txt" --break-system-packages \
-    || true
+  python3 -m pip install -r "${APP_DIR}/requirements.txt" || python3 -m pip install -r "${APP_DIR}/requirements.txt" --break-system-packages
 elif command -v pip3 >/dev/null 2>&1; then
-  pip3 install -r "${APP_DIR}/requirements.txt" || true
+  pip3 install -r "${APP_DIR}/requirements.txt"
+else
+  echo "FAIL: python3/pip3 not found"
+  exit 1
 fi
 
-${SUDO} systemctl daemon-reload || true
-${SUDO} systemctl enable "${SERVICE_NAME}" || true
-${SUDO} systemctl restart "${SERVICE_NAME}" || true
-${SUDO} systemctl status "${SERVICE_NAME}" --no-pager || true
+${SUDO} systemctl daemon-reload
+${SUDO} systemctl enable "${SERVICE_NAME}"
+${SUDO} systemctl restart "${SERVICE_NAME}"
+${SUDO} systemctl is-active --quiet "${SERVICE_NAME}"
+${SUDO} systemctl status "${SERVICE_NAME}" --no-pager
 echo "[DONE] group codedeploy hook finished"
