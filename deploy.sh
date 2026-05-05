@@ -59,8 +59,5 @@ else
 fi
 
 ${SUDO} systemctl daemon-reload
-${SUDO} systemctl enable "${SERVICE_NAME}"
-${SUDO} systemctl restart "${SERVICE_NAME}"
-${SUDO} systemctl is-active --quiet "${SERVICE_NAME}"
-${SUDO} systemctl status "${SERVICE_NAME}" --no-pager
+echo "[INFO] service start is handled in scripts/start.sh (AUTO_START_GROUP_SENDER gate)"
 echo "[DONE] group codedeploy hook finished"
