@@ -11,6 +11,7 @@ if [[ ! -f "${APP_DIR}/group_sender.py" ]] || [[ ! -f "${APP_DIR}/requirements.t
 fi
 
 mkdir -p "${APP_DIR}/batches"
+mkdir -p "${APP_DIR}/state"
 chmod +x "${APP_DIR}/scripts/"*.sh
 
 if [[ -f "/etc/group-agent/env" ]]; then

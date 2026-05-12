@@ -25,6 +25,9 @@ if [[ -f /etc/systemd/system/group-agent.service ]]; then
   systemctl restart group-agent.service
   systemctl is-active --quiet group-agent.service
 else
-  echo "FAIL: /etc/systemd/system/group-agent.service not found"
+  echo "FAIL: /etc/systemd/system/group-agent.service not found."
+  echo "      This unit is installed by CodeDeploy AfterInstall (group-app). If you only recreated the EC2 stack,"
+  echo "      run a CodeDeploy deployment to this instance, or copy the repo under /opt/group-agent and run:"
+  echo "        sudo bash /opt/group-agent/scripts/after_install.sh && sudo bash /opt/group-agent/scripts/start.sh"
   exit 1
 fi
