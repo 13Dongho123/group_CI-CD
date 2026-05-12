@@ -5,7 +5,7 @@
 
 - 직전 배치가 **성공적으로** S3까지 간 시점을 워터마크(`GROUP_STATE_DIR/watermark_<source>.json`)에 저장.
 - 다음 실행에서 DB는 **(워터마크 시각, 이번 실행의 기준 시각]** 구간만 SELECT 해서 JSON으로 묶어 Lambda → S3.
-- cron 주기를 `GROUP_BATCH_INTERVAL_SEC`(예: 120)와 맞추면, 정상 동작 시 **“그 사이(약 2분) 동안 테이블에 쌓인 행”**이 한 번에 나가는 것과 같다
+- cron 주기를 `GROUP_BATCH_INTERVAL_SEC`(예: 600)와 맞추면, 정상 동작 시 **“그 사이(약 10분) 동안 테이블에 쌓인 행”**이 한 번에 나가는 것과 같다
   (지연·재시도가 있으면 구간이 길어질 수 있고, 그때는 같은 규칙으로 뒤늦게 한꺼번에 나간다).
 
 한 틱 안에서 (선택) `GROUP_INSERT_PER_TICK`만큼 샘플 INSERT 후 곧바로 위 SELECT를 수행한다.
@@ -13,7 +13,7 @@
 
 실행 방식:
 
-- **systemd 루프**: `active_sender.py` → `run_sender` → `sleep(GROUP_BATCH_INTERVAL_SEC)` 반복 (2분 주기와 동일 효과).
+- **systemd 루프**: `active_sender.py` → `run_sender` → `sleep(GROUP_BATCH_INTERVAL_SEC)` 반복 (설정 초마다 한 사이클).
 - **cron 한 방**: `GROUP_RUN_ONCE=1` 두고 동일 바이너리로 한 번만 `send_once` (또는 `batch_export.py`).
 
 MySQL 미설정 시: 레거시 메모리 난수 배치. `GROUP_USE_MYSQL_EXPORT=false`로 강제 가능.
@@ -321,9 +321,9 @@ def _record_count() -> int:
 
 def _interval_sec() -> int:
     try:
-        n = int(os.environ.get("GROUP_BATCH_INTERVAL_SEC", "120"))
+        n = int(os.environ.get("GROUP_BATCH_INTERVAL_SEC", "600"))
     except ValueError:
-        n = 120
+        n = 600
     return max(10, n)
 
 
