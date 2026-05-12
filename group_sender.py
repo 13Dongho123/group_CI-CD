@@ -465,8 +465,13 @@ def _batch_payload_synthetic_legacy(source_name: str) -> dict[str, Any]:
                 "timestamp": now,
             }
         )
-    file_name = f"{source_name}_{_today().replace('-', '')}.json"
-    batch_id = hashlib.sha1(f"{source_name}:{now}:{len(rows)}".encode("utf-8")).hexdigest()[:16]
+    # 날짜만 쓰면 insurance / online_insurance 모두 하루 1키 → BatchLoader 가 duplicate skip.
+    # DB 모드와 같이 배치마다 유니크한 객체 키를 쓴다.
+    stamp = _today().replace("-", "")
+    batch_id = hashlib.sha1(
+        f"{source_name}:{now}:{len(rows)}:{secrets.token_hex(8)}".encode("utf-8")
+    ).hexdigest()[:16]
+    file_name = f"{source_name}_{stamp}_{batch_id}.json"
     return {
         "source_name": source_name,
         "timestamp": now,
