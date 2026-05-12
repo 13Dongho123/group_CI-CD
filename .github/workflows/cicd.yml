@@ -1,5 +1,6 @@
-# OIDC 호출: GHA → AWS AssumeRoleWithWebIdentity (IdP 1회/계정, Role은 저장소별 권장, sub=repo:… 제한).
+# OIDC: GHA → AWS AssumeRoleWithWebIdentity
 # Secrets: AWS_ROLE_TO_ASSUME, CODECOMMIT_HTTPS_URL | Variables(선택): AWS_REGION
+# 단계: Unit Test → Security Scan → Docker Build Test → CodeCommit mirror
 name: group-ci
 on:
   push:
@@ -17,14 +18,55 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  unit-test:
+    name: Unit Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: test -f buildspec.yml && test -f appspec.yml && test -f group_sender.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Layout & Python compile
+        run: |
+          set -euo pipefail
+          test -f buildspec.yml && test -f appspec.yml && test -f group_sender.py
+          python -m compileall -q .
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bandit
+        continue-on-error: true
+        run: |
+          pip install -q bandit
+          bandit -r . -ll -x ./tests
+
+  docker-build-test:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker engine smoke
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          printf '%s\n' 'FROM alpine:3.19' 'RUN echo docker-build-test-ok' > "${tmp}/Dockerfile"
+          docker build -f "${tmp}/Dockerfile" -t group-gha-smoke:test "${tmp}"
 
   mirror-to-codecommit:
-    needs: validate
+    name: Mirror to CodeCommit
+    needs: [unit-test, security-scan, docker-build-test]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
