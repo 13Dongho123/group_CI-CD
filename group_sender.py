@@ -200,8 +200,10 @@ def _bank_merchant_category_field() -> str:
 
 
 def _sample_ls_user_id() -> str:
-    """lifesync ls_user_id: LS + 9자리 숫자(0 패딩), 총 11자 — VARCHAR(30) 이내."""
-    return f"LS{random.randint(0, 999_999_999):09d}"
+    """데이터셋 정의: LS-{8자리HEX}-{5자리SEQ} (SEQ 00000–99999)."""
+    h = secrets.token_hex(4).upper()
+    seq = f"{random.randint(0, 99_999):05d}"
+    return f"LS-{h}-{seq}"
 
 
 # (insert_rows, fetch_rows, time_column_name for watermark advancement)
@@ -216,7 +218,7 @@ def _bank_ops() -> tuple[InsertFn, FetchFn]:
             cur.execute(
                 "INSERT IGNORE INTO bank_customer (bank_id, ls_user_id, account_no, account_type, branch_code, join_dt) "
                 "VALUES (%s,%s,%s,%s,%s,CURDATE())",
-                (bid, uid, f"ACC{uid}", "SAV", "BR01"),
+                (bid, uid, f"ACC{uid.removeprefix('LS-')}", "SAV", "BR01"),
             )
             cur.execute(
                 "INSERT INTO bank_transaction (bank_id, ls_user_id, transaction_id, transaction_dt, transaction_type, "
@@ -342,7 +344,7 @@ def _insurance_like_insert(cur: Any, n: int) -> None:
             "premium_amount, `status`) VALUES (%s,%s,%s,%s,%s,%s,%s)",
             (
                 pol,
-                f"INS{uid}",
+                f"INS{uid.removeprefix('LS-')}",
                 uid,
                 f"P{random.randint(1000, 9999)}",
                 product_name,
