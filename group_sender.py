@@ -49,6 +49,161 @@ except ImportError:
 InsertFn = Callable[[Any, int], None]
 FetchFn = Callable[[Any, datetime, datetime, int], list[dict[str, Any]]]
 
+# 샘플 INSERT용 가맹점 풀 (카테고리 → 이름). bank `merchant_category`(VARCHAR 30)·card·보험 상품명 등에 사용.
+MERCHANTS: dict[str, list[str]] = {
+    "FOOD": [
+        "스타벅스",
+        "맥도날드",
+        "BBQ치킨",
+        "한솥도시락",
+        "GS25편의점",
+        "CU편의점",
+        "이마트",
+        "롯데마트",
+        "홈플러스",
+        "배달의민족",
+        "본죽",
+        "파리바게뜨",
+        "교촌치킨",
+    ],
+    "TRANSPORT": ["서울교통공사", "카카오택시", "주유소GS", "SK주유소", "코레일", "티머니", "우버택시"],
+    "SHOPPING": ["쿠팡", "11번가", "G마켓", "네이버쇼핑", "올리브영", "다이소", "유니클로", "H&M", "무신사", "에이블리"],
+    "MEDICAL": ["서울대병원", "세브란스병원", "강남성형외과", "동네약국", "한국건강검진센터", "아산병원", "분당서울대"],
+    "ETC": ["넷플릭스", "왓챠", "카카오페이", "토스", "전기요금", "가스요금", "통신비KT", "LG유플러스"],
+    "ENTERTAINMENT": ["멜론", "유튜브프리미엄", "디즈니플러스", "CGV", "롯데시네마", "티빙"],
+    "UTILITIES": ["한국전력", "서울도시가스", "상수도요금", "아파트관리비"],
+    "EDUCATION": ["대성학원", "이투스", "메가스터디", "영어회화스쿨", "코딩스쿨"],
+    "TRAVEL": ["하나투어", "모두투어", "에어비앤비", "제주항공", "대한항공"],
+    "FITNESS": ["헬스보이짐", "스포애니", "필라테스K", "락클라이밍센터"],
+    "PET": ["펫프렌즈", "몰리스펫샵", "24시동물병원"],
+    "BABY": ["베이비또래", "쿠팡육아", "애기백화점"],
+    "OFFICE": ["필기구코리아", "문구세상", "사무용가구몰"],
+    "DIGITAL": ["애플앱스토어", "구글플레이", "스팀", "플레이스테이션스토어"],
+    "INSURANCE_BROKER": ["삼성화재다이렉트", "현대해상온라인", "DB손해보험", "한화손보"],
+    "AUTO": ["현대블루멤버스", "기아멤버스", "타이어프로", "카매니저"],
+    "SUBSCRIPTION": ["노션", "슬랙", "피그마", "깃허브코파일럿", "클라우드플레어"],
+    "PHARMA": ["온누리약국", "팜스빌", "e편한세상약국"],
+    "GAMING": ["넥슨캐시", "라이엇포인트", "스팀월렛"],
+    "COFFEE": ["이디야", "투썸플레이스", "메가커피", "블루보틀"],
+    "BOOKS": ["교보문고", "영풍문고", "알라딘", "예스24"],
+}
+
+# bank_transaction.transaction_type (VARCHAR 20) / channel (VARCHAR 20)
+_BANK_TX_TYPES = (
+    "DPST",
+    "WDTH",
+    "XFER",
+    "FEE",
+    "RVRSL",
+    "ATM",
+    "INT",
+    "AUTH",
+    "PAYROLL",
+    "REFUND",
+)
+_BANK_CHANNELS = ("MOBILE", "WEB", "BRANCH", "ATM", "POS", "API", "PHONE")
+
+# card_customer.card_grade (20) / card_approval.payment_status (20)
+_CARD_GRADES = ("PLATINUM", "GOLD", "SILVER", "CLASSIC", "SIGNATURE", "DIAMOND", "CORPORATE")
+_CARD_PAYMENT_STATUS = ("APPROVED", "PENDING", "DECLINED", "CANCELLED", "REFUNDED")
+_CARD_INSTALLMENTS = (0, 0, 0, 0, 2, 3, 6, 12)  # 대부분 일시불
+
+# securities: risk_grade(20), stock_code(20), asset_type(20), trade_type(10)
+_SEC_RISK_GRADES = ("LOW", "MID", "HIGH", "CONSERVATIVE", "AGGRESSIVE", "BALANCED")
+_SEC_STOCK_CODES = (
+    "005930",
+    "000660",
+    "035420",
+    "005380",
+    "051910",
+    "006400",
+    "035720",
+    "068270",
+    "373220",
+    "207940",
+    "005490",
+    "012330",
+    "105560",
+    "055550",
+    "032830",
+)
+_SEC_ASSET_TYPES = ("STOCK", "ETF", "REIT", "BOND", "FUND", "ELW")
+_SEC_TRADE_TYPES = ("BUY", "SELL", "DIVIDEND")
+
+# insurance_policy.status(20) / insurance_event.event_type(30) / payment_status(20)
+_INS_POLICY_STATUS = ("ACTIVE", "LAPSED", "SUSPENDED", "PENDING_RENEW")
+_INS_EVENT_TYPES = (
+    "PAYMENT",
+    "RENEWAL",
+    "CLAIM_SUBMIT",
+    "ADJUSTMENT",
+    "REFUND",
+    "PREMIUM_DUE",
+    "ENDORSEMENT",
+)
+_INS_PAYMENT_STATUS = ("OK", "PENDING", "FAILED", "PARTIAL", "REVERSED")
+
+# healthcare_record.exercise_type (VARCHAR 20)
+_HC_EXERCISE_TYPES = (
+    "RUNNING",
+    "WALKING",
+    "CYCLE",
+    "SWIM",
+    "YOGA",
+    "HIKE",
+    "STAIR",
+    "ELLIPTICAL",
+    "ROWING",
+    "STRENGTH",
+)
+
+# hospital_visit.diagnosis_code (20) / dept (30)
+_HOSP_DIAGNOSIS = (
+    "E11",
+    "I10",
+    "J06",
+    "M54",
+    "K29",
+    "N39",
+    "R51",
+    "Z00",
+    "J00",
+    "E78",
+    "F41",
+    "H10",
+)
+_HOSP_DEPTS = (
+    "내과",
+    "정형외과",
+    "피부과",
+    "이비인후과",
+    "소아과",
+    "응급실",
+    "산부인과",
+    "안과",
+    "정신건강의학과",
+    "재활의학과",
+    "흉부외과",
+    "비뇨기과",
+)
+
+
+def _random_merchant_pair() -> tuple[str, str]:
+    cat = random.choice(tuple(MERCHANTS.keys()))
+    return cat, random.choice(MERCHANTS[cat])
+
+
+def _bank_merchant_category_field() -> str:
+    """bank_transaction.merchant_category 는 VARCHAR(30) — 카테고리|가맹점 형태로 압축."""
+    cat, merchant = _random_merchant_pair()
+    return f"{cat}|{merchant}"[:30]
+
+
+def _sample_ls_user_id() -> str:
+    """lifesync ls_user_id: LS + 9자리 숫자(0 패딩), 총 11자 — VARCHAR(30) 이내."""
+    return f"LS{random.randint(0, 999_999_999):09d}"
+
+
 # (insert_rows, fetch_rows, time_column_name for watermark advancement)
 _SOURCE_REGISTRY: dict[str, tuple[InsertFn, FetchFn, str]] = {}
 
@@ -57,7 +212,7 @@ def _bank_ops() -> tuple[InsertFn, FetchFn]:
     def insert_rows(cur: Any, n: int) -> None:
         for _ in range(n):
             bid = f"b{secrets.token_hex(8)}"[:30]
-            uid = f"LS{random.randint(100000, 999999)}"
+            uid = _sample_ls_user_id()
             cur.execute(
                 "INSERT IGNORE INTO bank_customer (bank_id, ls_user_id, account_no, account_type, branch_code, join_dt) "
                 "VALUES (%s,%s,%s,%s,%s,CURDATE())",
@@ -71,11 +226,11 @@ def _bank_ops() -> tuple[InsertFn, FetchFn]:
                     bid,
                     uid,
                     f"TXN{random.randint(10**6, 10**9)}",
-                    random.choice(("DPST", "WDTH")),
+                    random.choice(_BANK_TX_TYPES),
                     random.randint(1, 50000),
                     random.randint(1, 200000),
-                    "FOOD",
-                    random.choice(("MOBILE", "WEB")),
+                    _bank_merchant_category_field(),
+                    random.choice(_BANK_CHANNELS),
                 ),
             )
 
@@ -95,12 +250,18 @@ def _card_ops() -> tuple[InsertFn, FetchFn]:
     def insert_rows(cur: Any, n: int) -> None:
         for _ in range(n):
             cid = f"c{secrets.token_hex(8)}"[:30]
-            uid = f"LS{random.randint(100000, 999999)}"
+            uid = _sample_ls_user_id()
             cur.execute(
                 "INSERT IGNORE INTO card_customer (card_id, ls_user_id, card_grade, limit_amount, issue_dt) "
                 "VALUES (%s,%s,%s,%s,CURDATE())",
-                (cid, uid, "GOLD", random.randint(100000, 9000000)),
+                (cid, uid, random.choice(_CARD_GRADES), random.randint(100000, 9000000)),
             )
+            cat_m, name_m = _random_merchant_pair()
+            pay = random.choices(
+                _CARD_PAYMENT_STATUS,
+                weights=(78, 8, 5, 5, 4),
+                k=1,
+            )[0]
             cur.execute(
                 "INSERT INTO card_approval (card_id, ls_user_id, approval_no, approval_dt, merchant_name, "
                 "merchant_category, amount, installment_months, payment_status) "
@@ -109,11 +270,11 @@ def _card_ops() -> tuple[InsertFn, FetchFn]:
                     cid,
                     uid,
                     f"APR{random.randint(10**6, 10**9)}",
-                    f"Merchant{random.randint(1000, 9999)}",
-                    "RETAIL",
+                    name_m[:100],
+                    cat_m[:30],
                     random.randint(1, 200000),
-                    0,
-                    "APPROVED",
+                    random.choice(_CARD_INSTALLMENTS),
+                    pay,
                 ),
             )
 
@@ -133,12 +294,14 @@ def _sec_ops() -> tuple[InsertFn, FetchFn]:
     def insert_rows(cur: Any, n: int) -> None:
         for _ in range(n):
             sid = f"s{secrets.token_hex(8)}"[:30]
-            uid = f"LS{random.randint(100000, 999999)}"
+            uid = _sample_ls_user_id()
             cur.execute(
                 "INSERT IGNORE INTO securities_account (sec_id, ls_user_id, risk_grade, open_dt) "
                 "VALUES (%s,%s,%s,CURDATE())",
-                (sid, uid, "MID"),
+                (sid, uid, random.choice(_SEC_RISK_GRADES)),
             )
+            qty = random.randint(1, 100)
+            px = random.randint(1000, 100000)
             cur.execute(
                 "INSERT INTO securities_trade (sec_id, trade_id, trade_dt, stock_code, asset_type, trade_type, "
                 "quantity, trade_price, trade_amount, return_rate) "
@@ -146,13 +309,13 @@ def _sec_ops() -> tuple[InsertFn, FetchFn]:
                 (
                     sid,
                     f"TR{random.randint(10**6, 10**9)}",
-                    "005930",
-                    "STOCK",
-                    "BUY",
-                    random.randint(1, 100),
-                    random.randint(1000, 100000),
-                    random.randint(10000, 5000000),
-                    Decimal("0.0123"),
+                    random.choice(_SEC_STOCK_CODES),
+                    random.choice(_SEC_ASSET_TYPES),
+                    random.choice(_SEC_TRADE_TYPES),
+                    qty,
+                    px,
+                    qty * px,
+                    Decimal(str(round(random.uniform(-5.0, 8.0), 4))),
                 ),
             )
 
@@ -171,7 +334,9 @@ def _sec_ops() -> tuple[InsertFn, FetchFn]:
 def _insurance_like_insert(cur: Any, n: int) -> None:
     for _ in range(n):
         pol = f"POL{secrets.token_hex(8)}"
-        uid = f"LS{random.randint(100000, 999999)}"
+        uid = _sample_ls_user_id()
+        cat_m, name_m = _random_merchant_pair()
+        product_name = f"{name_m} 연계 {cat_m}"[:100]
         cur.execute(
             "INSERT IGNORE INTO insurance_policy (policy_no, ins_id, ls_user_id, product_code, product_name, "
             "premium_amount, `status`) VALUES (%s,%s,%s,%s,%s,%s,%s)",
@@ -180,15 +345,20 @@ def _insurance_like_insert(cur: Any, n: int) -> None:
                 f"INS{uid}",
                 uid,
                 f"P{random.randint(1000, 9999)}",
-                "Product",
+                product_name,
                 random.randint(10000, 500000),
-                "ACTIVE",
+                random.choice(_INS_POLICY_STATUS),
             ),
         )
         cur.execute(
             "INSERT INTO insurance_event (policy_no, event_type, event_dt, payment_status, amount) "
             "VALUES (%s,%s,NOW(),%s,%s)",
-            (pol, "PAYMENT", "OK", random.randint(1000, 100000)),
+            (
+                pol,
+                random.choice(_INS_EVENT_TYPES),
+                random.choice(_INS_PAYMENT_STATUS),
+                random.randint(1000, 100000),
+            ),
         )
 
 
@@ -213,16 +383,16 @@ def _hc_ops() -> tuple[InsertFn, FetchFn]:
     def insert_rows(cur: Any, n: int) -> None:
         for _ in range(n):
             hid = f"h{secrets.token_hex(6)}"
-            uid = f"LS{random.randint(100000, 999999)}"
+            uid = _sample_ls_user_id()
             cur.execute(
                 "INSERT INTO healthcare_record (hc_id, ls_user_id, record_dt, bmi, weight_kg, exercise_type, "
                 "exercise_duration_min, calories) VALUES (%s,%s,NOW(),%s,%s,%s,%s,%s)",
                 (
                     hid,
                     uid,
-                    Decimal("22.5"),
-                    Decimal("70.0"),
-                    random.choice(("RUNNING", "WALKING", "CYCLE")),
+                    Decimal(str(round(random.uniform(18.0, 32.0), 1))),
+                    Decimal(str(round(random.uniform(45.0, 95.0), 1))),
+                    random.choice(_HC_EXERCISE_TYPES),
                     random.randint(10, 90),
                     random.randint(100, 800),
                 ),
@@ -242,11 +412,20 @@ def _hc_ops() -> tuple[InsertFn, FetchFn]:
 def _hosp_ops() -> tuple[InsertFn, FetchFn]:
     def insert_rows(cur: Any, n: int) -> None:
         for _ in range(n):
-            uid = f"LS{random.randint(100000, 999999)}"
+            uid = _sample_ls_user_id()
+            hospital_pool = MERCHANTS["MEDICAL"] + MERCHANTS["PHARMA"]
+            hospital_id = random.choice(hospital_pool)[:30]
+            dept = random.choice(_HOSP_DEPTS)[:30]
             cur.execute(
                 "INSERT INTO hospital_visit (hospital_id, ls_user_id, visit_dt, dept, diagnosis_code, treatment_cost) "
                 "VALUES (%s,%s,NOW(),%s,%s,%s)",
-                ("HOSP01", uid, "INTERNAL", "E11", random.randint(10000, 500000)),
+                (
+                    hospital_id,
+                    uid,
+                    dept,
+                    random.choice(_HOSP_DIAGNOSIS),
+                    random.randint(10000, 500000),
+                ),
             )
 
     def fetch_rows(cur: Any, since: datetime, until: datetime, limit: int) -> list[dict[str, Any]]:
