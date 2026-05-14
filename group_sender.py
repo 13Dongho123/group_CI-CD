@@ -671,10 +671,22 @@ def _persist_local(payload: dict) -> None:
     LOG.info("Local batch file written: %s", p)
 
 
+def _batch_loader_invoke_target() -> str:
+    """Lambda Invoke FunctionName: full ARN (BATCH_LOADER_LAMBDA_ARN) or name (BATCH_LOADER_LAMBDA_NAME)."""
+    arn = (os.environ.get("BATCH_LOADER_LAMBDA_ARN") or "").strip()
+    if arn:
+        return arn
+    name = (os.environ.get("BATCH_LOADER_LAMBDA_NAME") or "").strip()
+    if name:
+        return name
+    raise RuntimeError(
+        "BATCH_LOADER_LAMBDA_NAME or BATCH_LOADER_LAMBDA_ARN is not set "
+        "(12-ec2 UserData → /etc/group-agent/env; CodeDeploy after_install copies to /opt/group-agent/.env)"
+    )
+
+
 def _invoke_lambda(payload: dict) -> None:
-    fn = os.environ.get("BATCH_LOADER_LAMBDA_NAME", "").strip()
-    if not fn:
-        raise RuntimeError("BATCH_LOADER_LAMBDA_NAME is not set")
+    fn = _batch_loader_invoke_target()
     region = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "ap-northeast-2"
     client = boto3.client("lambda", region_name=region)
     # Lambda validates records only; strip export_window_* for smaller payload / strict consumers
@@ -684,11 +696,21 @@ def _invoke_lambda(payload: dict) -> None:
         if k in ("source_name", "timestamp", "file_name", "batch_id", "record_count", "records")
     }
     event = {"Records": [{"body": json.dumps(invoke_body, ensure_ascii=False)}]}
-    resp = client.invoke(
-        FunctionName=fn,
-        InvocationType="RequestResponse",
-        Payload=json.dumps(event).encode("utf-8"),
-    )
+    try:
+        resp = client.invoke(
+            FunctionName=fn,
+            InvocationType="RequestResponse",
+            Payload=json.dumps(event).encode("utf-8"),
+        )
+    except ClientError as e:
+        code = (e.response.get("Error") or {}).get("Code", "")
+        if code == "ResourceNotFoundException":
+            LOG.error(
+                "BatchLoader Lambda not found (%s). Redeploy 09 + 12 so IAM and "
+                "/etc/group-agent/env match CloudFormation Output BatchLoaderLambdaName.",
+                fn,
+            )
+        raise
     status = int(resp.get("StatusCode", 0))
     body = (resp.get("Payload").read() if resp.get("Payload") else b"").decode("utf-8", errors="replace")
     if status < 200 or status >= 300:
