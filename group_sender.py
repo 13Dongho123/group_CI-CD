@@ -208,6 +208,16 @@ def _sample_ls_user_id() -> str:
 
 # (insert_rows, fetch_rows, time_column_name for watermark advancement)
 _SOURCE_REGISTRY: dict[str, tuple[InsertFn, FetchFn, str]] = {}
+# BatchLoaderLambda(ingest.py) schema: one table_name per invoke.
+_EXPORT_TABLE_BY_SOURCE: dict[str, str] = {
+    "bank": "bank_transaction",
+    "card": "card_approval",
+    "securities": "securities_trade",
+    "insurance": "insurance_event",
+    "online_insurance": "insurance_event",
+    "healthcare": "healthcare_record",
+    "hospital": "hospital_visit",
+}
 
 
 def _bank_ops() -> tuple[InsertFn, FetchFn]:
@@ -482,6 +492,11 @@ def _utc_naive_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
 
 
+def _db_naive_now() -> datetime:
+    """Match MySQL NOW() on EC2 (UserData sets Asia/Seoul). Do not use UTC for export windows."""
+    return datetime.now().replace(microsecond=0)
+
+
 def _source() -> str:
     v = os.environ.get("SOURCE_NAME", "group").strip()
     return v or "group"
@@ -621,7 +636,8 @@ def _batch_payload_from_db(
         f"{source_name}:{now}:{len(rows)}:{window_end.isoformat()}".encode("utf-8")
     ).hexdigest()[:16]
     file_name = f"{source_name}_{stamp}_{batch_id}.json"
-    return {
+    table_name = _EXPORT_TABLE_BY_SOURCE.get(_normalize_source_name(source_name), "")
+    payload: dict[str, Any] = {
         "source_name": source_name,
         "timestamp": now,
         "file_name": file_name,
@@ -631,6 +647,9 @@ def _batch_payload_from_db(
         "export_window_start": window_start.isoformat(sep=" ", timespec="seconds"),
         "export_window_end": window_end.isoformat(sep=" ", timespec="seconds"),
     }
+    if table_name:
+        payload["table_name"] = table_name
+    return payload
 
 
 def _batch_payload_synthetic_legacy(source_name: str) -> dict[str, Any]:
@@ -693,7 +712,16 @@ def _invoke_lambda(payload: dict) -> None:
     invoke_body = {
         k: v
         for k, v in payload.items()
-        if k in ("source_name", "timestamp", "file_name", "batch_id", "record_count", "records")
+        if k
+        in (
+            "source_name",
+            "table_name",
+            "timestamp",
+            "file_name",
+            "batch_id",
+            "record_count",
+            "records",
+        )
     }
     event = {"Records": [{"body": json.dumps(invoke_body, ensure_ascii=False)}]}
     try:
@@ -747,7 +775,7 @@ def send_once(source_name: str) -> int:
         return 1
 
     insert_fn, fetch_fn, time_col = _SOURCE_REGISTRY[raw_src]
-    until = _utc_naive_now()
+    until = _db_naive_now()
     since = _load_watermark(raw_src)
     win_sec = max(0.0, (until - since).total_seconds())
     LOG.info(
