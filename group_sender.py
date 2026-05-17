@@ -351,7 +351,7 @@ def _insurance_like_insert(cur: Any, n: int) -> None:
         product_name = f"{name_m} 연계 {cat_m}"[:100]
         cur.execute(
             "INSERT IGNORE INTO insurance_policy (policy_no, ins_id, ls_user_id, product_code, product_name, "
-            "premium_amount, `status`) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            "premium_amount, policy_status) VALUES (%s,%s,%s,%s,%s,%s,%s)",
             (
                 pol,
                 f"INS{uid.removeprefix('LS-')}",
